@@ -3,17 +3,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def quantize_tensor(tensor, num_decimals):
+    """
+    Quantizes the tensor to a specified number of decimal places.
+    """
+    scale = 10.0**num_decimals
+    return torch.round(tensor * scale) / scale
+
+
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, num_classes):
+    def __init__(self, input_size, hidden_sizes, num_classes, num_decimals=None):
+        """
+        Initialize the MLP model with optional weight and bias quantization.
+        """
         super(MLP, self).__init__()
+        self.num_decimals = num_decimals
         layers = []
         in_features = input_size
-        # Create N hidden layers
         for hidden_size in hidden_sizes:
-            layers.extend((nn.Linear(in_features, hidden_size), nn.ReLU()))
+            layers.extend([nn.Linear(in_features, hidden_size), nn.ReLU()])
             in_features = hidden_size
         layers.append(nn.Linear(in_features, num_classes))
         self.layers = nn.Sequential(*layers)
+
+        if num_decimals is not None:
+            self.apply(self.quantize_weights)
+
+    def quantize_weights(self, m):
+        """
+        Applies quantization to the weights and biases of the model's layers.
+        """
+        if hasattr(m, "weight"):
+            m.weight.data = quantize_tensor(m.weight.data, self.num_decimals)
+        if hasattr(m, "bias") and m.bias is not None:
+            m.bias.data = quantize_tensor(m.bias.data, self.num_decimals)
 
     def forward(self, x):
         return self.layers(x)

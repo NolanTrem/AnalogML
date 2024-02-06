@@ -9,7 +9,7 @@ from mlp import MLP, predict, train
 from text_to_matrix import TextMatrixGenerator
 
 generator = TextMatrixGenerator(size=10)
-alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+alphabet = "ABCDE"
 X = []
 y = []
 
@@ -40,7 +40,12 @@ train_loader = DataLoader(dataset, batch_size=64, shuffle=True)
 
 input_size = X_tensor.size(1)
 num_classes = len(alphabet)
-model = MLP(input_size=input_size, hidden_sizes=[32], num_classes=num_classes)
+model = MLP(
+    input_size=input_size,
+    hidden_sizes=[8],
+    num_classes=num_classes,
+    num_decimals=4,
+)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
