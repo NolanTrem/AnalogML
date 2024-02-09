@@ -9,7 +9,7 @@ from mlp import MLP, predict, train
 from text_to_matrix import TextMatrixGenerator
 
 generator = TextMatrixGenerator(size=10)
-alphabet = "ABCDE"
+alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 X = []
 y = []
 
@@ -50,10 +50,19 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 train_loss_history, val_loss_history, val_accuracy_history = train(
-    model, criterion, optimizer, train_loader, val_loader, epochs=100
+    model, criterion, optimizer, train_loader, val_loader, epochs=400
 )
 
+# Save the model state dictionary
+model_path = "trained_model.pth"
+torch.save(model.state_dict(), model_path)
 
+# Save the weights and biases to CSV
+model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+model.eval()
+model.save_weights_biases_to_csv(num_decimals=4)
+
+# Plot the training and validation loss
 plt.plot(train_loss_history, label="Training Loss")
 plt.plot(val_loss_history, label="Validation Loss")
 plt.xlabel("Epoch")
@@ -62,6 +71,7 @@ plt.title("Loss Over Time")
 plt.legend()
 plt.show()
 
+# Plot the validation accuracy
 plt.plot(val_accuracy_history, label="Validation Accuracy")
 plt.xlabel("Epoch")
 plt.ylabel("Accuracy (%)")

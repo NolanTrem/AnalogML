@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 
 def quantize_tensor(tensor, num_decimals):
@@ -37,9 +38,28 @@ class MLP(nn.Module):
             m.weight.data = quantize_tensor(m.weight.data, self.num_decimals)
         if hasattr(m, "bias") and m.bias is not None:
             m.bias.data = quantize_tensor(m.bias.data, self.num_decimals)
-
+    
     def forward(self, x):
-        return self.layers(x)
+        """
+        Forward pass through the model.
+        """
+        print(f"Input size: {x.size()}")
+        for i, layer in enumerate(self.layers):
+            x = layer(x)
+            print(f"Layer {i + 1} ({layer.__class__.__name__}): Output size {x.size()}")
+        return x
+    
+    def save_weights_biases_to_csv(self, num_decimals=4, prefix='layer'):
+        for i, layer in enumerate(self.layers):
+            if isinstance(layer, nn.Linear):
+                weights = layer.weight.data.cpu().numpy()
+                biases = layer.bias.data.cpu().numpy()
+                weights_file = f"{prefix}_{i}_weights.csv"
+                biases_file = f"{prefix}_{i}_biases.csv"
+                # Use num_decimals to format the output
+                np.savetxt(weights_file, weights, delimiter=",", fmt=f'%.{num_decimals}f')
+                np.savetxt(biases_file, biases, delimiter=",", fmt=f'%.{num_decimals}f')
+                print(f"Saved {weights_file} and {biases_file}")
 
 
 def train(model, criterion, optimizer, train_loader, val_loader, epochs=10):
@@ -88,5 +108,8 @@ def train(model, criterion, optimizer, train_loader, val_loader, epochs=10):
 def predict(model, data):
     model.eval()
     with torch.no_grad():
+        print(f"Input size during inference: {data.size()}")
         output = model(data)
-        return output.argmax(dim=1)
+        prediction = output.argmax(dim=1)
+        print(f"Output size during inference: {prediction.size()}")
+        return prediction

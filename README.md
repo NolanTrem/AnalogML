@@ -58,5 +58,5 @@ And scaled to a 20x20 matrix:
 | [128,64]      | 0.1866        | 0.1601          | 100.00%             |
 
 
-![Loss for n=[32]](images/10_10_100_64_loss.png)
-![Accuracy for n=[32]](images/10_10_100_64_accuracy.png)
+![Loss for n=[32]](images/10_10_8_1_loss.png)
+![Accuracy for n=[32]](images/10_10_8_1_accuracy.png)
