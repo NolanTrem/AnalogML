@@ -44,13 +44,13 @@ model = MLP(
     input_size=input_size,
     hidden_sizes=[8],
     num_classes=num_classes,
-    num_decimals=4,
+    num_decimals=3,
 )
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 train_loss_history, val_loss_history, val_accuracy_history = train(
-    model, criterion, optimizer, train_loader, val_loader, epochs=1000
+    model, criterion, optimizer, train_loader, val_loader, epochs=2000
 )
 
 # Save the model state dictionary
