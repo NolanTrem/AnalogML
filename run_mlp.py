@@ -50,7 +50,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 train_loss_history, val_loss_history, val_accuracy_history = train(
-    model, criterion, optimizer, train_loader, val_loader, epochs=400
+    model, criterion, optimizer, train_loader, val_loader, epochs=1000
 )
 
 # Save the model state dictionary
@@ -58,7 +58,7 @@ model_path = "trained_model.pth"
 torch.save(model.state_dict(), model_path)
 
 # Save the weights and biases to CSV
-model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+model.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
 model.eval()
 model.save_weights_biases_to_csv(num_decimals=4)
 
