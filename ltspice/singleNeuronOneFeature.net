@@ -1,0 +1,11 @@
+*
+XU1 MP_01 N001 0 -VCC MP_02 Vout +VCC LM741
+R1 N001 N002 100k
+R2 Vout N001 100k
+V1 N002 0 1
+V2 +VCC 0 3
+V3 0 -VCC 3
+.op
+.lib LM741.lib
+.backanno
+.end
