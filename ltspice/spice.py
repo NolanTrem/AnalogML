@@ -12,7 +12,7 @@ spice_library = SpiceLibrary(libraries_path)
 
 # Load resistor values from CSV
 def load_resistor_values(row_number):
-    with open('resistor_values_layer_2_weights.csv', 'r') as csvfile:
+    with open('resistor_values_layer_0_weights.csv', 'r') as csvfile:
         reader = csv.reader(csvfile)
         for i, row in enumerate(reader):
             if i == row_number - 1:
