@@ -16,7 +16,7 @@ def load_resistor_values(row_number):
         reader = csv.reader(csvfile)
         for i, row in enumerate(reader):
             if i == row_number - 1:
-                return [float(value) for value in row]
+                return [value if value != "NULL" else "NULL" for value in row]
     return []
 
 # Define test cases
@@ -57,10 +57,11 @@ for row_number in range(start_row, end_row + 1):
         for i, resistor_value in enumerate(resistor_values):
             resistor_index += 1
             voltage_source_index += 1
-            circuit.R(f'R{resistor_index}', 'N001', f'N{resistor_index + 1}', resistor_value@u_Ω)
-            reciprocal_sum += 1 / resistor_value
-            voltage = 1 if i < len(resistor_values) * voltage_factor else 0
-            circuit.V(f'V{voltage_source_index}', f'N{resistor_index + 1}', circuit.gnd, voltage@u_V)
+            if resistor_value != "NULL":
+                circuit.R(f'R{resistor_index}', 'N001', f'N{resistor_index + 1}', float(resistor_value)@u_Ω)
+                reciprocal_sum += 1 / float(resistor_value)
+                voltage = 1 if i < len(resistor_values) * voltage_factor else 0
+                circuit.V(f'V{voltage_source_index}', f'N{resistor_index + 1}', circuit.gnd, voltage@u_V)
         
         # Set R1 based on the equivalent resistance of the other resistors
         equivalent_resistance = 1 / reciprocal_sum
