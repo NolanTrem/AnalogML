@@ -31,7 +31,10 @@ def process_csv_files(csv_files, min_resistor=300, max_resistor=100300):
             resistor_df.loc[index] = row.apply(lambda x: "NULL" if x > max_threshold else x)
             removed_count = (row > max_threshold).sum()
 
-            print(f"Row {index + 1}: Min = {min_value}, Max = {row.max()}, Removed = {removed_count}")
+            voltage = 1
+            total_current = sum(voltage / float(resistor_value) for resistor_value in row if resistor_value != "NULL")
+
+            print(f"Row {index + 1}: Min = {min_value}, Max = {row.max()}, Removed = {removed_count}, Total Current = {total_current:.5f} A")
 
         resistor_df.to_csv(f"resistor_values_{file}", header=None, index=False)
 
