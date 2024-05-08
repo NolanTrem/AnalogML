@@ -1,6 +1,9 @@
 # AnalogML
 A project looking to implement a fully connected feed-forward artificial neural network completely in analog hardware. Part of Columbia ELENE3390, Electrical Engineering Senior Capstone Projects
 
+Best pre-finetuning model -- Train Loss: 0.7688, Val Loss: 0.2113, Val Accuracy: 100.00%
+Best finetuning model -- Train Loss: 0.4129, Val Loss: 0.1293, Val Accuracy: 100.00%
+
 ## Modeling the Network in the Digital Domain
 
 

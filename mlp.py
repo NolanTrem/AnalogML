@@ -10,20 +10,15 @@ resistor_values = np.array([1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.
 conductance_values = 1 / resistor_values
 normalized_conductance_values = (conductance_values - conductance_values.min()) / (conductance_values.max() - conductance_values.min())
 
-def normalize_and_quantize_tensor(tensor):
+def normalize_and_quantize_tensor(tensor, conductance_values):
     """
-    Normalizes the tensor to the range [0, 1] and quantizes it to the nearest E24 resistor value.
+    Normalize the tensor values between 0 and 1 and quantize them to the nearest normalized conductance value.
     """
-    if tensor.nelement() == 0:
-        return tensor
-
     tensor = torch.clamp(tensor, 0, 1)
     quantized_tensor = torch.zeros_like(tensor)
-
-    for value in normalized_conductance_values:
+    for value in conductance_values:
         mask = torch.abs(tensor - value) == torch.min(torch.abs(tensor - value))
         quantized_tensor[mask] = value
-
     return quantized_tensor
 
 def reapply_quantization_and_normalization(model):
@@ -33,57 +28,48 @@ def reapply_quantization_and_normalization(model):
         if hasattr(m, "bias") and m.bias is not None:
             m.bias.data = normalize_and_quantize_tensor(m.bias.data)
 
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        nn.init.kaiming_normal_(m.weight)
-        nn.init.zeros_(m.bias)
-
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, num_classes, dropout_rate=0.5):
+    def __init__(self, input_size, hidden_sizes, num_classes, dropout_rate=0.05, quantization_parameter=0.0):
         super(MLP, self).__init__()
+        self.quantization_parameter = quantization_parameter
         layers = []
         in_features = input_size
         for hidden_size in hidden_sizes:
-            layers.extend([
-                nn.Linear(in_features, hidden_size),
-                nn.BatchNorm1d(hidden_size),
-                nn.LeakyReLU(),
-                nn.Dropout(dropout_rate)
-            ])
+            layers.extend(
+                (
+                    nn.Linear(in_features, hidden_size),
+                    nn.BatchNorm1d(hidden_size),
+                    nn.ReLU(),
+                    nn.Dropout(dropout_rate),
+                )
+            )
             in_features = hidden_size
         layers.append(nn.Linear(in_features, num_classes))
         self.layers = nn.Sequential(*layers)
-        self.apply(init_weights)
+        self.apply(self.init_weights)
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.uniform_(m.weight, 0, 1)
+            nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         return self.layers(x)
-    # def __init__(self, input_size, hidden_sizes, num_classes, num_decimals=None):
-    #     super(MLP, self).__init__()
-    #     self.num_decimals = num_decimals
-    #     layers = []
-    #     in_features = input_size
-    #     for hidden_size in hidden_sizes:
-    #         layers.extend([nn.Linear(in_features, hidden_size), nn.ReLU()])
-    #         in_features = hidden_size
-    #     layers.append(nn.Linear(in_features, num_classes))
-    #     self.layers = nn.Sequential(*layers)
 
-    #     if num_decimals is not None:
-    #         self.apply(self.quantize_weights)
+    def set_quantization_parameter(self, quantization_parameter):
+        self.quantization_parameter = quantization_parameter
 
-    # def quantize_weights(self, m):
-    #     if hasattr(m, "weight"):
-    #         m.weight.data = normalize_and_quantize_tensor(m.weight.data)
-    #     if hasattr(m, "bias") and m.bias is not None:
-    #         m.bias.data = normalize_and_quantize_tensor(m.bias.data)
+    def quantize_weights(self):
+        for m in self.modules():
+            if hasattr(m, "weight"):
+                m.weight.data = self.quantize_tensor(m.weight.data)
 
-    def forward(self, x):
-        """
-        Forward pass through the model.
-        """
-        for layer in self.layers:
-            x = layer(x)
-        return x
+    def quantize_tensor(self, tensor):
+        if tensor.nelement() == 0:
+            return tensor
+
+        quantized_tensor = normalize_and_quantize_tensor(tensor, normalized_conductance_values)
+        return (1 - self.quantization_parameter) * tensor + self.quantization_parameter * quantized_tensor
 
     def save_weights_biases_to_csv(self, num_decimals=4, prefix="layer"):
         for i, layer in enumerate(self.layers):
@@ -111,22 +97,34 @@ def normalize_weights(weights, lut_assignment="layer"):
 
     return weights / max_val
 
+def clamp_weights(model):
+    for m in model.modules():
+        if hasattr(m, "weight"):
+            m.weight.data.clamp_(0, 1)
+        if hasattr(m, "bias") and m.bias is not None:
+            m.bias.data.clamp_(0, 1)
 
-def train(model, criterion, optimizer, train_loader, val_loader, scheduler, epochs=10, restart_interval=100, lut_assignment="layer"):
+def train(model, criterion, optimizer, train_loader, val_loader, epochs=10, quantization_warmup=50, quantization_steps=50, patience=2000):
     model.train()
     train_loss_history = []
     val_loss_history = []
     val_accuracy_history = []
-    swa_model = AveragedModel(model)
-    val_loss = 0
 
-    # Step 1: Train with continuous weights
+    best_model_weights = copy.deepcopy(model.state_dict())
+    best_val_loss = float("inf")
+    best_train_loss = float("inf")
+    best_val_accuracy = 0.0
+
+    best_finetune_weights = None
+    best_finetune_train_loss = float("inf")
+    best_finetune_val_loss = float("inf")
+    best_finetune_val_accuracy = 0.0
+
+    epochs_without_improvement = 0
+
     for epoch in range(epochs):
-        total_loss = 0
-
-        if (epoch + 1) % restart_interval == 0:
-            model.apply(init_weights)
-
+        total_train_loss = 0
+        model.train()
         for data, target in train_loader:
             optimizer.zero_grad()
             output = model(data)
@@ -134,51 +132,55 @@ def train(model, criterion, optimizer, train_loader, val_loader, scheduler, epoc
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            total_loss += loss.item()
+            clamp_weights(model)
+            total_train_loss += loss.item()
 
-            scheduler.step(val_loss)
-
-        epoch_loss = total_loss / len(train_loader)
-        train_loss_history.append(epoch_loss)
-
-        model.eval()
+        val_loss = 0
         correct = 0
+        model.eval()
         with torch.no_grad():
             for data, target in val_loader:
                 output = model(data)
-                val_loss += criterion(output, target).item()
+                loss = criterion(output, target)
+                val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
-        val_loss /= len(val_loader)
-        val_loss_history.append(val_loss)
-
+        val_loss /= len(val_loader.dataset)
         accuracy = 100.0 * correct / len(val_loader.dataset)
+
+        train_loss_history.append(total_train_loss / len(train_loader))
+        val_loss_history.append(val_loss)
         val_accuracy_history.append(accuracy)
 
-        print(
-            f"Epoch {epoch+1}, Training Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {accuracy:.2f}%"
-        )
+        if accuracy > best_val_accuracy or (accuracy == best_val_accuracy and val_loss < best_val_loss):
+            best_val_accuracy = accuracy
+            best_val_loss = val_loss
+            best_train_loss = total_train_loss / len(train_loader)
+            best_model_weights = copy.deepcopy(model.state_dict())
 
-        swa_model.update_parameters(model)
-    
-    # Step 2: Normalize weights based on LUT assignment
-    for m in model.modules():
-        if hasattr(m, "weight"):
-            m.weight.data = normalize_weights(m.weight.data, lut_assignment)
+        if accuracy < 100.0:
+            epochs_without_improvement += 1
+        else:
+            epochs_without_improvement = 0
 
-    # Step 3: Quantize weights to powers-of-two or sums of powers-of-two
-    for m in model.modules():
-        if hasattr(m, "weight"):
-            m.weight.data = optimizer.quantize_weights(m.weight.data)
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping at epoch {epoch+1}")
+            break
 
-    # Step 4: Fine-tune with quantized weights
+        if epoch >= quantization_warmup:
+            quantization_progress = min(1.0, (epoch - quantization_warmup + 1) / quantization_steps)
+            model.set_quantization_parameter(quantization_progress)
+            model.quantize_weights()
+
+    model.load_state_dict(best_model_weights)
+
+    print(f"Best pre-finetuning model -- Train Loss: {best_train_loss:.4f}, Val Loss: {best_val_loss:.4f}, Val Accuracy: {best_val_accuracy:.2f}%")
+
+    # Fine-tuning with quantized weights
     for epoch in range(epochs):
-        total_loss = 0
-
-        if (epoch + 1) % restart_interval == 0:
-            model.apply(init_weights)
-
+        total_train_loss = 0
+        model.train()
         for data, target in train_loader:
             optimizer.zero_grad()
             output = model(data)
@@ -186,38 +188,34 @@ def train(model, criterion, optimizer, train_loader, val_loader, scheduler, epoc
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            reapply_quantization_and_normalization(model)
-            total_loss += loss.item()
+            clamp_weights(model)
+            total_train_loss += loss.item()
 
-            scheduler.step(val_loss)
-
-        epoch_loss = total_loss / len(train_loader)
-        train_loss_history.append(epoch_loss)
-
-        model.eval()
+        val_loss = 0
         correct = 0
+        model.eval()
         with torch.no_grad():
             for data, target in val_loader:
                 output = model(data)
-                val_loss += criterion(output, target).item()
+                loss = criterion(output, target)
+                val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
-        val_loss /= len(val_loader)
-        val_loss_history.append(val_loss)
-
+        val_loss /= len(val_loader.dataset)
         accuracy = 100.0 * correct / len(val_loader.dataset)
-        val_accuracy_history.append(accuracy)
 
-        print(
-            f"Epoch {epoch+1}, Training Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {accuracy:.2f}%"
-        )
+        if accuracy > best_finetune_val_accuracy or (accuracy == best_finetune_val_accuracy and (val_loss < best_finetune_val_loss or total_train_loss / len(train_loader) < best_finetune_train_loss)):
+            best_finetune_val_accuracy = accuracy
+            best_finetune_val_loss = val_loss
+            best_finetune_train_loss = total_train_loss / len(train_loader)
+            best_finetune_weights = copy.deepcopy(model.state_dict())
 
-        swa_model.update_parameters(model)
+    model.load_state_dict(best_finetune_weights or best_model_weights)
 
-    swa_model.eval()
+    print(f"Best finetuning model -- Train Loss: {best_finetune_train_loss:.4f}, Val Loss: {best_finetune_val_loss:.4f}, Val Accuracy: {best_finetune_val_accuracy:.2f}%")
 
-    return swa_model, train_loss_history, val_loss_history, val_accuracy_history
+    return model, train_loss_history, val_loss_history, val_accuracy_history
 
 
 def predict(model, data):

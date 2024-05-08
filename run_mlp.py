@@ -13,6 +13,8 @@ from text_to_matrix import TextMatrixGenerator
 from QuantizedAdam import QuantizedAdam
 
 generator = ShapeMatrixGenerator(size=5)
+# shapes = ['circle', 'square']
+# shapes = ['circle', 'square', 'triangle']
 shapes = ['circle', 'square', 'triangle', 'diamond']
 shape_matrices = {
     'circle': generator.draw_circle(),
@@ -25,39 +27,43 @@ X = []
 y = []
 
 for index, shape in enumerate(shapes):
+    # Print the shape
+    print(f"Shape: {shape}")
     matrix = shape_matrices[shape]
+    # print the matrix
+    print(matrix)
     vector = matrix.flatten()
+    # Print the flattened matrix
+    print(vector)
     X.append(vector)
     y.append(index)
 
-X = np.array(X)
-y = np.array(y)
+# X = np.array(X)
+# y = np.array(y)
 
-X_tensor = torch.Tensor(X)
-y_tensor = torch.Tensor(y).long()
+# X_tensor = torch.Tensor(X)
+# y_tensor = torch.Tensor(y).long()
 
-train_dataset = TensorDataset(X_tensor, y_tensor)
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+# train_dataset = TensorDataset(X_tensor, y_tensor)
+# train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
-val_loader = DataLoader(train_dataset, batch_size=64, shuffle=False)
+# val_loader = DataLoader(train_dataset, batch_size=64, shuffle=False)
 
-input_size = X_tensor.size(1)
-num_classes = 4
+# input_size = X_tensor.size(1)
+# num_classes = 4
 
-model = MLP(
-    input_size=input_size,
-    hidden_sizes=[8],
-    num_classes=num_classes,
-)
-criterion = nn.CrossEntropyLoss()
-# optimizer = QuantizedAdam(model.parameters(), lr=1e-2, betas=(0.9, 0.999), weight_decay=1e-3)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-6)
+# model = MLP(
+#     input_size=input_size,
+#     hidden_sizes=[4],
+#     num_classes=num_classes,
+# )
+# criterion = nn.CrossEntropyLoss()
+# optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+# scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-6)
 
-
-train_loss_history, val_loss_history, val_accuracy_history = train(
-    model, criterion, optimizer, train_loader, val_loader, scheduler, epochs=10000
-)
+# swa_model, train_loss_history, val_loss_history, val_accuracy_history = train(
+#     model, criterion, optimizer, train_loader, val_loader, epochs=10000, quantization_warmup=500, quantization_steps=500
+# )
 
 # # Save the model state dictionary
 # model_path = "trained_model.pth"

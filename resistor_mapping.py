@@ -1,48 +1,27 @@
 import pandas as pd
+import numpy as np
 
-def weight_to_resistor(value, min_resistor=300, max_resistor=100300):
-    """
-    Maps a quantized weight value (0 to 1) directly to a resistor value within the specified range,
-    rounding to the nearest 100Ω.
-    """
-    resistor_value = (1 - value) * (max_resistor - min_resistor) + min_resistor
-    return round(resistor_value / 100) * 100
+resistor_values = np.array([1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1]) * 1e3
+conductance_values = 1 / resistor_values
+normalized_conductance_values = (conductance_values - conductance_values.min()) / (conductance_values.max() - conductance_values.min())
 
-def process_csv_files(csv_files, min_resistor=300, max_resistor=100300):
-    """
-    Reads the CSV files containing the weights and biases and maps the values to resistor values,
-    rounding to the nearest integer. Assumes CSV files do not have header rows.
-    """
+def find_nearest_resistor(value):
+    idx = (np.abs(normalized_conductance_values - value)).argmin()
+    return resistor_values[idx]
+
+def process_csv_files(csv_files):
     for file in csv_files:
         df = pd.read_csv(file, header=None)
-
-        resistor_df = df.applymap(
-            lambda x: round(weight_to_resistor(x, min_resistor, max_resistor))
-        )
+        # Use apply with a lambda function across each element in the DataFrame
+        resistor_df = df.apply(lambda row: row.map(find_nearest_resistor), axis=1)
         resistor_df.to_csv(f"resistor_values_{file}", header=None, index=False)
-
-        print(f"Min and max resistor values for {file}:")
-        for index, row in resistor_df.iterrows():
-            min_value = row.min()
-            max_threshold = min_value * 100  # Two orders of magnitude larger than the minimum resistor
-            removed_count = 0
-
-            # Replace resistors that exceed the threshold with "NULL"
-            resistor_df.loc[index] = row.apply(lambda x: "NULL" if x > max_threshold else x)
-            removed_count = (row > max_threshold).sum()
-
-            voltage = 1
-            total_current = sum(voltage / float(resistor_value) for resistor_value in row if resistor_value != "NULL")
-
-            print(f"Row {index + 1}: Min = {min_value}, Max = {row.max()}, Removed = {removed_count}, Total Current = {total_current:.5f} A")
-
-        resistor_df.to_csv(f"resistor_values_{file}", header=None, index=False)
+        print(f"Processed {file}.")
 
 csv_files = [
     "layer_0_weights.csv",
     "layer_0_biases.csv",
-    "layer_2_weights.csv",
-    "layer_2_biases.csv",
+    "layer_4_weights.csv",
+    "layer_4_biases.csv",
 ]
 
 process_csv_files(csv_files)
