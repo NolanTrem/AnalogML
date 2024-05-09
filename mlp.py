@@ -3,8 +3,8 @@ import copy
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
+# Standard E24 resistors
 resistor_values = (
     np.array(
         [

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+# Standard E24 resistors
 resistor_values = (
     np.array(
         [
@@ -48,7 +49,7 @@ def process_csv_files(csv_files):
         df = pd.read_csv(file, header=None)
         # Use apply with a lambda function across each element in the DataFrame
         resistor_df = df.apply(lambda row: row.map(find_nearest_resistor), axis=1)
-        resistor_df.to_csv(f"resistor_values_{file}", header=None, index=False)
+        resistor_df.to_csv(f"{file}_resistor_values", header=None, index=False)
         print(f"Processed {file}.")
 
 
