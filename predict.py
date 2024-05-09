@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from mlp import MLP, predict
-from text_to_matrix import TextMatrixGenerator
+from MLP import MLP, predict
+from TextMatrixGenerator import TextMatrixGenerator
 
 input_size = 100
 num_classes = 5

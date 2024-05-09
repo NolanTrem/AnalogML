@@ -46,7 +46,7 @@ class TextMatrixGenerator:
                 large_matrix[i, j] = small_matrix[small_i, small_j]
 
         return large_matrix
-    
+
     def rotate_matrix(self, matrix, degrees):
         if degrees == 90:
             return np.rot90(matrix, k=1)

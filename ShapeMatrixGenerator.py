@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image, ImageDraw
 
+
 class ShapeMatrixGenerator:
     def __init__(self, size=5):
         """
@@ -14,7 +15,7 @@ class ShapeMatrixGenerator:
         """
         image = Image.new("L", (self.size, self.size), "white")
         draw = ImageDraw.Draw(image)
-        draw.ellipse((0, 0, self.size-1, self.size-1), fill="black")
+        draw.ellipse((0, 0, self.size - 1, self.size - 1), fill="black")
         matrix = np.array(image) < 128
         return matrix.astype(int)
 
@@ -24,7 +25,7 @@ class ShapeMatrixGenerator:
         """
         image = Image.new("L", (self.size, self.size), "white")
         draw = ImageDraw.Draw(image)
-        draw.rectangle((0, 0, self.size-1, self.size-1), fill="black")
+        draw.rectangle((0, 0, self.size - 1, self.size - 1), fill="black")
         matrix = np.array(image) < 128
         return matrix.astype(int)
 
@@ -34,7 +35,10 @@ class ShapeMatrixGenerator:
         """
         image = Image.new("L", (self.size, self.size), "white")
         draw = ImageDraw.Draw(image)
-        draw.polygon([(self.size//2, 0), (0, self.size-1), (self.size-1, self.size-1)], fill="black")
+        draw.polygon(
+            [(self.size // 2, 0), (0, self.size - 1), (self.size - 1, self.size - 1)],
+            fill="black",
+        )
         matrix = np.array(image) < 128
         return matrix.astype(int)
 
@@ -44,8 +48,15 @@ class ShapeMatrixGenerator:
         """
         image = Image.new("L", (self.size, self.size), "white")
         draw = ImageDraw.Draw(image)
-        draw.polygon([(self.size//2, 0), (0, self.size//2), 
-                      (self.size//2, self.size-1), (self.size-1, self.size//2)], fill="black")
+        draw.polygon(
+            [
+                (self.size // 2, 0),
+                (0, self.size // 2),
+                (self.size // 2, self.size - 1),
+                (self.size - 1, self.size // 2),
+            ],
+            fill="black",
+        )
         matrix = np.array(image) < 128
         return matrix.astype(int)
 
@@ -61,6 +72,7 @@ class ShapeMatrixGenerator:
             return np.rot90(matrix, k=3)
         else:
             return matrix
+
 
 # Example usage
 generator = ShapeMatrixGenerator(size=5)

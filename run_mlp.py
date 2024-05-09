@@ -2,22 +2,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.utils.data import DataLoader, TensorDataset
 
+from MLP import MLP, predict, train
 from ShapeMatrixGenerator import ShapeMatrixGenerator
+
 # Not used in this example, but another option for simple matrices
 from TextMatrixGenerator import TextMatrixGenerator
 
-from mlp import MLP, predict, train
-
 generator = ShapeMatrixGenerator(size=5)
-shapes = ['circle', 'square', 'triangle', 'diamond']
+shapes = ["circle", "square", "triangle", "diamond"]
 shape_matrices = {
-    'circle': generator.draw_circle(),
-    'square': generator.draw_square(),
-    'triangle': generator.draw_triangle(),
-    'diamond': generator.draw_diamond(),
+    "circle": generator.draw_circle(),
+    "square": generator.draw_square(),
+    "triangle": generator.draw_triangle(),
+    "diamond": generator.draw_diamond(),
 }
 
 X = []
@@ -59,7 +59,14 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-6)
 
 swa_model, train_loss_history, val_loss_history, val_accuracy_history = train(
-    model, criterion, optimizer, train_loader, val_loader, epochs=10000, quantization_warmup=500, quantization_steps=500
+    model,
+    criterion,
+    optimizer,
+    train_loader,
+    val_loader,
+    epochs=10000,
+    quantization_warmup=500,
+    quantization_steps=500,
 )
 
 # Save the model state dictionary
