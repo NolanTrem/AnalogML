@@ -4,6 +4,13 @@ A project looking to implement a fully connected feed-forward artificial neural 
 Best pre-finetuning model -- Train Loss: 0.7688, Val Loss: 0.2113, Val Accuracy: 100.00%
 Best finetuning model -- Train Loss: 0.4129, Val Loss: 0.1293, Val Accuracy: 100.00%
 
+## Realized MLP PCB
+
+![IMG_8199](https://github.com/user-attachments/assets/262832ba-7dc2-440f-a816-e2f34c7856bc)
+
+![IMG_8071](https://github.com/user-attachments/assets/2d557b08-689b-48be-8ebb-a837f0a84ec8)
+
+
 ## Modeling the Network in the Digital Domain
 
 
